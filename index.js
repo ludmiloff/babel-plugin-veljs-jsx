@@ -1,8 +1,7 @@
 const {default: BabelPluginSyntaxJsx} = require('@babel/plugin-syntax-jsx')
-const {default: generator} = require('@babel/generator');
+const {default: generator} = require('@babel/generator')
 
-
-let nested = 0;
+let fragmentId = 0
 
 module.exports = api => {
 
@@ -13,12 +12,12 @@ module.exports = api => {
     inherits: BabelPluginSyntaxJsx,
     visitor: {
       JSXElement(path) {
-        nested += 1;
-        path.replaceWith(transformElement(renderElement(path.node), nested))
+        fragmentId += 1
+        path.replaceWith(transformElement(renderElement(path.node), fragmentId))
       },
       JSXFragment(path) {
-        nested += 1;
-        path.replaceWith(transformElement(renderElement(path.node), nested))
+        fragmentId += 1
+        path.replaceWith(transformElement(renderElement(path.node), fragmentId))
       },
     },
   }
@@ -26,6 +25,7 @@ module.exports = api => {
   /**
    * take array of quasis (strings) + expressions (AST nodes) and produce TemplateLiteral node
    * @param {Array<*>} parts
+   * @param {Number} fragment - jsx fragment number
    * @return {object}
    **/
   function transformElement(parts, fragment) {
@@ -57,11 +57,11 @@ module.exports = api => {
     }
 
     const ret = t.taggedTemplateExpression(
-      t.identifier('this.part("'+fragment+'")'),
+      t.identifier('this.part("' + fragment + '")'),
       t.templateLiteral(quasis, exprs),
     )
 
-    return ret;
+    return ret
   }
 
   /**
@@ -80,8 +80,10 @@ module.exports = api => {
 
       if (isClass) {
         const classAttrs = elem.openingElement.attributes.map(renderClassProp)
-        nested += 1;
-        return [t.memberExpression(className, t.identifier('for(this, '+nested+', {' + flatten(classAttrs) + '})'))]
+        fragmentId += 1
+        return [
+          t.memberExpression(className, t.identifier('for(this, ' + fragmentId + ', {' + flatten(classAttrs) + '})')),
+        ]
       }
 
       const attrs = elem.openingElement.attributes.map(renderProp)
