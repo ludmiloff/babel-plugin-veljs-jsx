@@ -1,0 +1,35 @@
+{
+  "name": "babel-plugin-tranform-jsx-veljs",
+  "version": "0.1.0",
+  "description": "Add JSX syntax to velJS",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs/issues"
+  },
+  "homepage": "https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs",
+  "keywords": [
+    "babel-plugin",
+    "jsx",
+    "veljs",
+    "lighterhtml"
+  ],
+  "author": "Cvetoslav Ludmiloff <ludmiloff@gmail.com>",
+  "license": "ISC",
+  "scripts": {
+    "prepublishOnly": "npm test",
+    "test": "eslint index.js && node test"
+  },
+  "dependencies": {
+    "@babel/plugin-syntax-jsx": "^7.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.4.4",
+    "eslint": "^5.6.0"
+  },
+  "peerDependencies": {
+    "@babel/core": "^7.4.4"
+  }
+}
