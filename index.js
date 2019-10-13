@@ -170,7 +170,17 @@ module.exports = api => {
       if (prop.value.type == 'StringLiteral') { // value is a string literal
 
         // we are setting an attribute with value, produce template strings
-        if (attributeName) return [' ', `${attributeName}`, '=', prop.value.extra.raw]
+        if (attributeName) {
+          let name
+          // transforming React style className into class
+          if (attributeName == 'className') {
+            name = 'class'
+          } 
+          else {
+            name = attributeName
+          }
+          return [' ', `${name}`, '=', prop.value.extra.raw]
+        }
 
         // setting event handler to a string doesn't make sense
         if (eventName) throw Error(`Event prop can't be a string literal`)

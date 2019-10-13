@@ -167,4 +167,12 @@ test(
   'this.part(29)`<ul>${vLopp(list,TemplateFunction)}</ul>`;'
 )
 
+console.log('JSX conformance and tweaks')
+
+test(
+  "Transform JSX properties (React style)",
+  '<div className="some-class" onClick={console.log}></div>',
+  'this.part(30)`<div class="some-class" onclick=${console.log}></div>`;'
+)
+
 console.log("All tests passed successfully! 🎉")
