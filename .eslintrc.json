@@ -26,7 +26,7 @@
     "max-len": ["error", 120, 4],
     "max-statements": ["warn", 20],
     "no-caller": "error",
-    "no-console": "warn",
+    "no-console": "off",
     "no-constant-condition": "off",
     "no-empty": "off",
     "no-invalid-this": "error",

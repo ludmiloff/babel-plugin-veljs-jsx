@@ -26,9 +26,10 @@ module.exports = api => {
    * take array of quasis (strings) + expressions (AST nodes) and produce TemplateLiteral node
    * @param {Array<*>} parts
    * @param {Number} fragment - jsx fragment number
+   * @param {Boolean} tagged - return tagged template expression or template literal
    * @return {object}
    **/
-  function transformElement(parts, fragment) {
+  function transformElement(parts, fragment, tagged = true) {
 
     // we have one mixed array and we need to split nodes by type
     const quasis = [], exprs = []
@@ -56,10 +57,12 @@ module.exports = api => {
 
     }
 
-    const ret = t.taggedTemplateExpression(
-      t.identifier('this.part("' + fragment + '")'),
-      t.templateLiteral(quasis, exprs),
-    )
+    const ret = tagged 
+      ? t.taggedTemplateExpression(
+        t.identifier('this.part(' + fragment + ')'),
+        t.templateLiteral(quasis, exprs)        
+      )
+      : t.templateLiteral(quasis, exprs)
 
     return ret
   }
@@ -80,6 +83,14 @@ module.exports = api => {
 
       if (isClass) {
         const classAttrs = elem.openingElement.attributes.map(renderClassProp)
+
+        if (tag == 'ForEach') {
+          const callParams = flatten(classAttrs).map(it => it.split(':')[1])
+          return [
+            t.identifier(`vLopp(${callParams})`),
+          ]
+        }
+        
         fragmentId += 1
         return [
           t.memberExpression(className, t.identifier('for(this, ' + fragmentId + ', {' + flatten(classAttrs) + '})')),
@@ -119,9 +130,8 @@ module.exports = api => {
       // it's a single uppercase identifier (e.g. `Foo`)
       else if (root) {
         const object = t.identifier(tag)
-        const property = t.identifier('for(this)')
-        // imitate React and try to use the class (`<${Foo.is}>`)
-        return {tag: t.memberExpression(object, property), isClass: true, className: object}
+        // must transformed into Foo.for() 
+        return {tag, isClass: true, className: object}
       }
 
       // it's not the only identifier, it's a part of a member expression
@@ -152,18 +162,15 @@ module.exports = api => {
    */
   function renderProp(prop) {
 
-    const [jsxName, attributeName, eventName, propertyName]
-      = prop.name.name.match(/^(?:(.*)\$|on(.*)|(.*))$/)
+    const [jsxName, eventName, attributeName]
+      = prop.name.name.match(/^(?:on-?(.*)|(.*))$/)
 
     if (prop.value) { // prop has a value
 
       if (prop.value.type == 'StringLiteral') { // value is a string literal
 
-        // we are setting an attribute, no lit-html involved, produce template strings
+        // we are setting an attribute with value, produce template strings
         if (attributeName) return [' ', `${attributeName}`, '=', prop.value.extra.raw]
-
-        // setting property must involve lit-html, let's create a template expression here
-        if (propertyName) return [' ', `${propertyName}`, '=', t.stringLiteral(prop.value.extra.rawValue)]
 
         // setting event handler to a string doesn't make sense
         if (eventName) throw Error(`Event prop can't be a string literal`)
@@ -173,25 +180,19 @@ module.exports = api => {
 
         // modify the name and produce a template expression in all cases
         if (attributeName) return [' ', `${attributeName}`, '=', prop.value.expression]
-        if (propertyName) return [' ', `.${propertyName}`, '=', prop.value.expression]
-        if (eventName) return [' ', `on${eventName}`, '=', prop.value.expression]
+        if (eventName) return [' ', `on${eventName.toLowerCase()}`, '=', prop.value.expression]
 
       }
     }
     else { // prop has no value
 
-      // we are setting a boolean attribute, no lit-html involved, just remove the `$`
+      // we are setting a boolean attribute
       if (attributeName) return [' ', `${attributeName}`]
 
       // valueless event handler doesn't make sense
       if (eventName) throw Error(`Event prop must have a value`)
-
-      // Valueless property default to `true` (imitate React)
-      if (propertyName) return [' ', `.${propertyName}`, '=', t.booleanLiteral(true)]
-
     }
     throw new Error(`Couldn't transform attribute ${JSON.stringify(jsxName)}`)
-
   }
 
 
@@ -202,18 +203,15 @@ module.exports = api => {
    */
   function renderClassProp(prop) {
 
-    const [jsxName, attributeName, eventName, propertyName]
-      = prop.name.name.match(/^(?:(.*)\$|on(.*)|(.*))$/)
+    const [jsxName, eventName, attributeName]
+      = prop.name.name.match(/^(?:on-?(.*)|(.*))$/)
 
     if (prop.value) { // prop has a value
 
       if (prop.value.type == 'StringLiteral') { // value is a string literal
 
-        // we are setting an attribute, no lit-html involved, produce template strings
+        // we are setting an attribute, produce template strings
         if (attributeName) return [`${attributeName}:"${prop.value.extra.raw}"`]
-
-        // setting property must involve lit-html, let's create a template expression here
-        if (propertyName) return [`${propertyName}:"${prop.value.extra.rawValue}"`]
 
         // setting event handler to a string doesn't make sense
         if (eventName) throw Error(`Event prop can't be a string literal`)
@@ -222,26 +220,29 @@ module.exports = api => {
 
       if (prop.value.type == 'JSXExpressionContainer') { // value is an expression
         // modify the name and produce a template expression in all cases
-        if (attributeName) return [`${attributeName}:${generator(prop.value.expression).code}`]
-        if (propertyName) return [`${propertyName}:${generator(prop.value.expression).code}`]
+        if (attributeName) {
+          if (prop.value.expression.type == 'JSXElement') {
+            // value is jsx element, produce another partial result and pass ir
+            fragmentId += 1
+            const templateValue = transformElement(renderElement(prop.value.expression), fragmentId, false)
+            return [`${attributeName}:this.part(${fragmentId})${generator(templateValue).code}`]
+          }
+          return [`${attributeName}:${generator(prop.value.expression).code}`]
+        }
         if (eventName) return [`on${eventName}:${generator(prop.value.expression).code}`]
 
       }
     }
     else { // prop has no value
 
-      // we are setting a boolean attribute, no lit-html involved, just remove the `$`
-      if (attributeName) return [`${attributeName}`]
+      // Valueless property default to `true` (imitate React)
+      if (attributeName) return [`${attributeName}:${t.booleanLiteral(true)}`]
 
       // valueless event handler doesn't make sense
       if (eventName) throw Error(`Event prop must have a value`)
 
-      // Valueless property default to `true` (imitate React)
-      if (propertyName) return [`${propertyName}:${t.booleanLiteral(true)}`]
-
     }
     throw new Error(`Couldn't transform attribute ${JSON.stringify(jsxName)}`)
-
   }
 
   /**
@@ -262,7 +263,6 @@ module.exports = api => {
       return renderElement(child) // recurse on element
 
     throw new Error(`Unknown child type: ${child.type}`)
-
   }
 
 }
