@@ -1,15 +1,15 @@
 {
-  "name": "babel-plugin-tranform-jsx-veljs",
-  "version": "0.1.0",
-  "description": "Add JSX syntax to velJS",
+  "name": "babel-plugin-veljs-jsx",
+  "version": "0.2.0",
+  "description": "Add JSX syntax to VelJs",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs.git"
+    "url": "git+https://github.com/ludmiloff/babel-plugin-veljs-jsx.git"
   },
   "bugs": {
-    "url": "https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs/issues"
+    "url": "https://github.com/ludmiloff/babel-plugin-veljs-jsx/issues"
   },
-  "homepage": "https://github.com/ludmiloff/babel-plugin-tranform-jsx-veljs",
+  "homepage": "https://github.com/ludmiloff/babel-plugin-veljs-jsx",
   "keywords": [
     "babel-plugin",
     "jsx",

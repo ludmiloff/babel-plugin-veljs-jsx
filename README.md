@@ -1,4 +1,4 @@
-# babel-plugin-tranform-jsx-veljs
+# babel-plugin-veljs-jsx
 JSX syntax for VirtualElement - velJS v2+ https://github.com/ludmiloff/VirtualElement
 
 A specialized rewrite of https://github.com/phaux/babel-jsx-lit-html for velJS
@@ -8,6 +8,9 @@ A specialized rewrite of https://github.com/phaux/babel-jsx-lit-html for velJS
 
 ```json
 {
-  "plugins": ["transform-jsx-veljs"]
+  "plugins": ["babel-plugin-veljs-jsx"]
 }
 ```
+
+## Syntax
+See test.js for examples
