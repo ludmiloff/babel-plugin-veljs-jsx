@@ -41,8 +41,8 @@ console.log('### Custom (Virtual) Elements')
 
 test(
   "Transforms custom (virtual) element class (fragmentId must be incremented twice)",
-  '<div><MyComponent/></div>;',
-  'this.part(6)`<div>${MyComponent.for(this, 6, {})}</div>`;'
+  '<div><MyComponent prop="test"/></div>;',
+  'this.part(6)`<div>${MyComponent.for(this, 6, {prop:"test"})}</div>`;'
 )
 
 console.log('### Attributes')
