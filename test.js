@@ -42,7 +42,9 @@ console.log('### Custom (Virtual) Elements')
 test(
   "Transforms custom (virtual) element class (fragmentId must be incremented twice)",
   '<div><MyComponent prop="test"/></div>;',
-  'this.part(6)`<div>${MyComponent.for(this, 6, {prop:"test"})}</div>`;'
+  'this.part(6)`<div>${MyComponent.for(self, "_f6_", {\n'
+    + '  prop: "test"\n'
+    + '})}</div>`;'
 )
 
 console.log('### Attributes')
@@ -91,8 +93,12 @@ test(
 
 test(
   "Transforms expression attribute with JSX template value",
-  `<Tag render={<div><Element value={my}/>test</div>}/>;`,
-  'this.part(17)`${Tag.for(this, 17, {render:this.part(16)`<div>${Element.for(this, 16, {value:my})}test</div>`})}`;'
+  `<Tag render={<Element value={my}/>}/>;`,
+  'Tag.for(self, "_f17_", {\n' +
+  '  render: Element.for(self, "_f19_", {\n'
+  + '    value: my\n'
+  + '  })\n'
+  + '});',
 )
 
 console.log('### Event handlers')
@@ -100,19 +106,19 @@ console.log('### Event handlers')
 test(
   "Transforms event handlers (dashed)",
   `<input on-input={console.log}/>;`,
-  'this.part(18)`<input oninput=${console.log}>`;'
+  'this.part(20)`<input oninput=${console.log}>`;'
 )
 
 test(
   "Transforms event handlers (React style)",
   `<button onClick={console.log}/>;`,
-  'this.part(19)`<button onclick=${console.log}></button>`;'
+  'this.part(21)`<button onclick=${console.log}></button>`;'
 )
 
 test(
   "Transforms event handlers for custom (virtual) element (React style)",
   `<Button onClick={console.log}/>;`,
-  'this.part(21)`${Button.for(this, 21, {onClick:console.log})}`;'
+  'Button.for(self, "_f23_", {\n  onClick: console.log\n});'
 )
 
 console.log('### Children')
@@ -120,59 +126,54 @@ console.log('### Children')
 test(
   "Transforms text children",
   `<p> foo bar </p>;`,
-  'this.part(22)`<p> foo bar </p>`;'
+  'this.part(24)`<p> foo bar </p>`;'
 )
 
 test(
   "Escapes text children",
   '<p> `\\` </p>;',
-  'this.part(23)`<p> \\`\\\\\\` </p>`;'
+  'this.part(25)`<p> \\`\\\\\\` </p>`;'
 )
 
 test(
   "Doesn't transform entities in text children",
   '<p> &quot; </p>;',
-  'this.part(24)`<p> &quot; </p>`;'
+  'this.part(26)`<p> &quot; </p>`;'
 )
 
 test(
   "Transforms expression children",
   `<p> foo: {val} </p>;`,
-  'this.part(25)`<p> foo: ${val} </p>`;'
+  'this.part(27)`<p> foo: ${val} </p>`;'
 )
 
 test(
   "Skips empty expression children",
   `<p>{ } { /* comment */ }</p>;`,
-  'this.part(26)`<p> </p>`;'
+  'this.part(28)`<p> </p>`;'
 )
 
 test(
   "Transforms element children",
   `<p> foo: <b> {val} </b> </p>;`,
-  'this.part(27)`<p> foo: <b> ${val} </b> </p>`;'
+  'this.part(29)`<p> foo: <b> ${val} </b> </p>`;'
 )
 
 test(
   "Transforms fragment children",
   `<p> foo: <>{val}</> </p>;`,
-  'this.part(28)`<p> foo: ${val} </p>`;'
+  'this.part(30)`<p> foo: ${val} </p>`;'
 )
 
-console.log('### Element extras')
+console.log('### Element extras (NO TESTS ATM)')
 
-test(
-  "Transforms Element extras - (ForEach) with Template(function(props))",
-  '<ul><ForEach items={list} render={TemplateFunction} /></ul>',
-  'this.part(29)`<ul>${vLopp(list,TemplateFunction)}</ul>`;'
-)
 
 console.log('JSX conformance and tweaks')
 
 test(
   "Transform JSX properties (React style)",
   '<div className="some-class" onClick={console.log}></div>',
-  'this.part(30)`<div class="some-class" onclick=${console.log}></div>`;'
+  'this.part(31)`<div class="some-class" onclick=${console.log}></div>`;'
 )
 
 console.log("All tests passed successfully! 🎉")

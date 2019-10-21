@@ -177,7 +177,6 @@ module.exports = api => {
    */  
   function renderClassElement(elem, className) {
     const classAttrs = elem.openingElement.attributes.map(renderClassProp)
-
     fragmentId += 1
 
     let hasKeyAttr = false
@@ -356,7 +355,7 @@ module.exports = api => {
               return [
                 t.objectProperty(
                   t.identifier(attributeName), 
-                  `this.part(${fragmentId})${generator(templateValue).code}`
+                  prop.value.expression, // `this.part(${fragmentId})${generator(templateValue).code}`
                 ),
               ]
             }
@@ -365,7 +364,7 @@ module.exports = api => {
           return [t.objectProperty(t.identifier(attributeName), prop.value.expression)]
         }
         if (eventName) {
-          return [`on${eventName}`, generator(prop.value.expression).code]
+          return [t.objectProperty(t.identifier(`on${eventName}`), prop.value.expression)]
         }
       }
     }
