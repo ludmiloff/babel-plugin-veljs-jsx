@@ -2,6 +2,46 @@ const {default: BabelPluginSyntaxJsx} = require('@babel/plugin-syntax-jsx')
 const {default: generator} = require('@babel/generator')
 
 let fragmentId = 0
+let rootEl = 0
+
+/**
+ * Check if body contains JSX
+ * source taken from https://github.com/vuejs/jsx/blob/dev/packages/babel-sugar-inject-h/src/index.js
+ * @param {*} t
+ * @param {*} path ObjectMethod | ClassMethod
+ * @return {boolean}
+ */
+const hasJSX = (t, path) => {
+  const JSXChecker = {
+    hasJSX: false,
+  }
+  path.traverse(
+    {
+      JSXElement() {
+        this.hasJSX = true
+      },
+    },
+    JSXChecker,
+  )
+  return JSXChecker.hasJSX
+}
+
+/**
+ * Check if is inside a JSX expression
+ * source taken from https://github.com/vuejs/jsx/blob/dev/packages/babel-sugar-inject-h/src/index.js
+ * @param {*} t
+ * @param {*} path ObjectMethod | ClassMethod
+ * @return {boolean}
+ */
+const isInsideJSXExpression = (t, path) => {
+  if (!path.parentPath) {
+    return false
+  }
+  if (t.isJSXExpressionContainer(path.parentPath)) {
+    return true
+  }
+  return isInsideJSXExpression(t, path.parentPath)
+}
 
 module.exports = api => {
 
@@ -11,10 +51,42 @@ module.exports = api => {
   return {
     inherits: BabelPluginSyntaxJsx,
     visitor: {
-      JSXElement(path) {
-        fragmentId += 1
-        path.replaceWith(transformElement(renderElement(path.node), fragmentId))
+      // inject `const self = this` into every VirtualElement method containing JSX
+      Program(path) {
+        path.traverse({
+          'ObjectMethod|ClassMethod'(path) {
+            if (!hasJSX(t, path) || isInsideJSXExpression(t, path)) {
+              return
+            }
+
+            path
+              .get('body')
+              .unshiftContainer(
+                'body',
+                t.variableDeclaration('const', [
+                  t.variableDeclarator(
+                    t.identifier('self'),
+                    t.thisExpression()
+                  ),
+                ]),
+              )
+          },
+        })
       },
+
+      JSXElement(path) {
+        rootEl += 1
+        fragmentId += 1
+        const virt  = isVirtualElement(path.node.openingElement.name)
+        if (virt && rootEl == 1) {
+          path.replaceWith(renderElement(path.node)[0])
+        } 
+        else {
+          path.replaceWith(transformElement(renderElement(path.node), fragmentId))
+        }
+        rootEl -= 1
+      },
+
       JSXFragment(path) {
         fragmentId += 1
         path.replaceWith(transformElement(renderElement(path.node), fragmentId))
@@ -35,6 +107,7 @@ module.exports = api => {
     const quasis = [], exprs = []
 
     let i = 0
+
     // do one iteration more to make sure we produce an empty string quasi at the end
     while (i < parts.length + 1) {
 
@@ -57,10 +130,10 @@ module.exports = api => {
 
     }
 
-    const ret = tagged 
+    const ret = tagged
       ? t.taggedTemplateExpression(
         t.identifier('this.part(' + fragment + ')'),
-        t.templateLiteral(quasis, exprs)        
+        t.templateLiteral(quasis, exprs)
       )
       : t.templateLiteral(quasis, exprs)
 
@@ -77,24 +150,13 @@ module.exports = api => {
       const children = elem.children.map(renderChild)
       return [...flatten(children)]
     }
+
     if (elem.type == 'JSXElement') {
       const {tag, isVoid, isClass, className} = renderTag(elem.openingElement.name)
       const children = elem.children.map(renderChild)
 
       if (isClass) {
-        const classAttrs = elem.openingElement.attributes.map(renderClassProp)
-
-        if (tag == 'ForEach') {
-          const callParams = flatten(classAttrs).map(it => it.split(':')[1])
-          return [
-            t.identifier(`vLopp(${callParams})`),
-          ]
-        }
-        
-        fragmentId += 1
-        return [
-          t.memberExpression(className, t.identifier('for(this, ' + fragmentId + ', {' + flatten(classAttrs) + '})')),
-        ]
+        return renderClassElement(elem, className)
       }
 
       const attrs = elem.openingElement.attributes.map(renderProp)
@@ -105,6 +167,58 @@ module.exports = api => {
       ]
     }
     throw new Error(`Unknown element type: ${elem.type}`)
+  }
+
+  /**
+   * take VirtualElement as JSXElement and return array of template strings and parts
+   * @param {*} elem
+   * @param {*} className
+   * @return {Array<*>}
+   */  
+  function renderClassElement(elem, className) {
+    const classAttrs = elem.openingElement.attributes.map(renderClassProp)
+
+    fragmentId += 1
+
+    let hasKeyAttr = false
+    let keyValue
+    for (let i = 0; i < classAttrs.length; i++) {
+      if (classAttrs[i][0].key.name === 'key') {
+        keyValue = classAttrs[i][0].value
+        hasKeyAttr = true
+        break
+      }
+    }
+
+    const keyParam = hasKeyAttr ? keyValue : t.identifier(`"_f${fragmentId}_"`) // fragmentId
+    return [
+      t.callExpression(
+        t.memberExpression(className, t.identifier('for')), [
+          t.identifier('self'),
+          keyParam,
+          t.objectExpression(flatten(classAttrs)),
+        ]),
+    ]    
+  }
+
+  /**
+   * Check if name is a HTML tag or VirtualElement tag
+   * @param {*} name
+   * @return {boolean}
+   */
+  function isVirtualElement(name) {
+    // name is an identifier
+    if (name.type == 'JSXIdentifier') {
+
+      // it's a single lowercase identifier (e.g. `foo`)
+      if (t.react.isCompatTag(name.name)) {
+        // html element
+        return false
+      }
+
+      // must be a virtual element
+      return true
+    }
   }
 
   /**
@@ -130,7 +244,7 @@ module.exports = api => {
       // it's a single uppercase identifier (e.g. `Foo`)
       else if (root) {
         const object = t.identifier(tag)
-        // must transformed into Foo.for() 
+        // must transformed into Foo.for()
         return {tag, isClass: true, className: object}
       }
 
@@ -175,7 +289,7 @@ module.exports = api => {
           // transforming React style className into class
           if (attributeName == 'className') {
             name = 'class'
-          } 
+          }
           else {
             name = attributeName
           }
@@ -205,53 +319,67 @@ module.exports = api => {
     throw new Error(`Couldn't transform attribute ${JSON.stringify(jsxName)}`)
   }
 
-
   /**
-   * Take JSXAttribute and return array of template strings and parts
+   * Take JSXAttribute and return VirtualElement call property
    * @param {*} prop
    * @return {Array<*>}
    */
   function renderClassProp(prop) {
 
-    const [jsxName, eventName, attributeName]
-      = prop.name.name.match(/^(?:on-?(.*)|(.*))$/)
+    const [jsxName, eventName, attributeName] = prop.name.name.match(/^(?:on-?(.*)|(.*))$/)
 
     if (prop.value) { // prop has a value
 
       if (prop.value.type == 'StringLiteral') { // value is a string literal
 
         // we are setting an attribute, produce template strings
-        if (attributeName) return [`${attributeName}:"${prop.value.extra.rawValue}"`]
+        if (attributeName) {
+          return [t.objectProperty(t.identifier(attributeName), prop.value)]
+        }
 
         // setting event handler to a string doesn't make sense
         if (eventName) throw Error(`Event prop can't be a string literal`)
-
       }
 
       if (prop.value.type == 'JSXExpressionContainer') { // value is an expression
         // modify the name and produce a template expression in all cases
         if (attributeName) {
           if (prop.value.expression.type == 'JSXElement') {
-            // value is jsx element, produce another partial result and pass ir
-            fragmentId += 1
+            // value is jsx element, produce another partial result and pass it
+            // TODO: check prop value expression
             const templateValue = transformElement(renderElement(prop.value.expression), fragmentId, false)
-            return [`${attributeName}:this.part(${fragmentId})${generator(templateValue).code}`]
+            if (isVirtualElement(prop.value.expression)) {
+              return [t.objectProperty(t.identifier(attributeName), `${generator(templateValue).code}`)]
+            } 
+            else {
+              fragmentId += 1
+              return [
+                t.objectProperty(
+                  t.identifier(attributeName), 
+                  `this.part(${fragmentId})${generator(templateValue).code}`
+                ),
+              ]
+            }
           }
-          return [`${attributeName}:${generator(prop.value.expression).code}`]
-        }
-        if (eventName) return [`on${eventName}:${generator(prop.value.expression).code}`]
 
+          return [t.objectProperty(t.identifier(attributeName), prop.value.expression)]
+        }
+        if (eventName) {
+          return [`on${eventName}`, generator(prop.value.expression).code]
+        }
       }
     }
     else { // prop has no value
 
       // Valueless property default to `true` (imitate React)
-      if (attributeName) return [`${attributeName}:${t.booleanLiteral(true)}`]
+      if (attributeName) {
+        return [t.objectProperty(t.identifier(attributeName), t.booleanLiteral(true))]
+      }
 
       // valueless event handler doesn't make sense
       if (eventName) throw Error(`Event prop must have a value`)
-
     }
+
     throw new Error(`Couldn't transform attribute ${JSON.stringify(jsxName)}`)
   }
 
