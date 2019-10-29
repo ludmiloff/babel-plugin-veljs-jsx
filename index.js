@@ -99,9 +99,10 @@ module.exports = api => {
    * @param {Array<*>} parts
    * @param {Number} fragment - jsx fragment number
    * @param {Boolean} tagged - return tagged template expression or template literal
+   * @param {Number} tagType - 1 - this.part; 2 - this.html
    * @return {object}
    **/
-  function transformElement(parts, fragment, tagged = true) {
+  function transformElement(parts, fragment, tagged = true, tagType = 1) {
 
     // we have one mixed array and we need to split nodes by type
     const quasis = [], exprs = []
@@ -114,8 +115,18 @@ module.exports = api => {
       let quasi = ''
       // join adjacent strings into one
       while (typeof parts[i] == 'string') {
+        
         // we need to escape backticks and backslashes manually
-        quasi += parts[i].replace(/[\\`]/g, s => `\\${s}`)
+        // also strip some whitespaces
+        const part = parts[i]
+          .replace(/[\\`]/g, s => `\\${s}`)
+          .replace(/\n+\s+/, '')
+          .replace(/\t?/, '')
+          .replace(/\s+/, ' ')
+
+        if (part.length !== '') {
+          quasi += part
+        }
         i += 1
       }
 
@@ -130,14 +141,18 @@ module.exports = api => {
 
     }
 
-    const ret = tagged
-      ? t.taggedTemplateExpression(
-        t.identifier('this.part(' + fragment + ')'),
+    if (tagged) {
+      const tagExpr = tagType == 1 
+        ? t.identifier('this.part(' + fragment + ')')
+        : t.identifier('this.part("root")')
+
+      return t.taggedTemplateExpression(
+        tagExpr, 
         t.templateLiteral(quasis, exprs)
       )
-      : t.templateLiteral(quasis, exprs)
+    }
 
-    return ret
+    return t.templateLiteral(quasis, exprs)
   }
 
   /**
@@ -156,7 +171,7 @@ module.exports = api => {
       const children = elem.children.map(renderChild)
 
       if (isClass) {
-        return renderClassElement(elem, className)
+        return renderClassElement(elem, className, children)
       }
 
       const attrs = elem.openingElement.attributes.map(renderProp)
@@ -173,9 +188,10 @@ module.exports = api => {
    * take VirtualElement as JSXElement and return array of template strings and parts
    * @param {*} elem
    * @param {*} className
+   * @param {Array<*>} children
    * @return {Array<*>}
    */  
-  function renderClassElement(elem, className) {
+  function renderClassElement(elem, className, children) {
     const classAttrs = elem.openingElement.attributes.map(renderClassProp)
     fragmentId += 1
 
@@ -187,6 +203,14 @@ module.exports = api => {
         hasKeyAttr = true
         break
       }
+    }
+
+    if (children && children.length > 0) {
+      fragmentId += 1
+      classAttrs.push(
+        [t.objectProperty(t.identifier('slot'), transformElement([...flatten(children)], fragmentId, true))],
+      )
+      fragmentId += 1 // just again after rendering children
     }
 
     const keyParam = hasKeyAttr ? keyValue : t.identifier(`"_f${fragmentId}_"`) // fragmentId
@@ -258,10 +282,8 @@ module.exports = api => {
       const expr = name // transform recursively
       const {tag: object} = renderTag(expr.object, false)
       const property = t.identifier(expr.property.name)
-      const tag = root // stick `.is` to the root member expr
-        ? t.memberExpression(t.memberExpression(object, property), t.identifier('is'))
-        : t.memberExpression(object, property)
-      return {tag} // return as member expr
+      const tag = t.memberExpression(object, property)
+      return {tag, isClass: true, className: tag} // return as member expr
     }
 
     throw new Error(`Unknown element tag type: ${name.type}`)
