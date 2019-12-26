@@ -181,9 +181,9 @@ module.exports = api => {
       }
 
       const attrs = elem.openingElement.attributes.map(renderProp)
-      let keyExpr;
-      let keyedElement = false;
-      const filteredAttrs = attrs.filter((attr) => {
+      let keyExpr
+      let keyedElement = false
+      const filteredAttrs = attrs.filter(attr => {
         if (attr[1] === 'key') {
           keyedElement = true
           keyExpr = attr[3]
