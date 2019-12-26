@@ -82,7 +82,13 @@ module.exports = api => {
           path.replaceWith(renderElement(path.node)[0])
         } 
         else {
-          path.replaceWith(transformElement(renderElement(path.node), fragmentId))
+          const elem = renderElement(path.node)
+          if (t.isTaggedTemplateExpression(elem) && rootEl) {
+            path.replaceWith(elem)
+          }
+          else {
+            path.replaceWith(transformElement(renderElement(path.node), fragmentId))
+          }
         }
         rootEl -= 1
       },
@@ -143,8 +149,8 @@ module.exports = api => {
 
     if (tagged) {
       const tagExpr = tagType == 1 
-        ? t.identifier('this.part(' + fragment + ')')
-        : t.identifier('this.part("root")')
+        ? t.identifier('self.part(' + fragment + ')')
+        : t.identifier('self.part("root")')
 
       return t.taggedTemplateExpression(
         tagExpr, 
@@ -175,11 +181,28 @@ module.exports = api => {
       }
 
       const attrs = elem.openingElement.attributes.map(renderProp)
-      return [
-        '<', tag, ...flatten(attrs), '>',
+      let keyExpr;
+      let keyedElement = false;
+      const filteredAttrs = attrs.filter((attr) => {
+        if (attr[1] === 'key') {
+          keyedElement = true
+          keyExpr = attr[3]
+          return false
+        }
+        return true
+      })
+
+      const result = [
+        '<', tag, ...flatten(filteredAttrs), '>',
         ...isVoid ? [] : flatten(children),
         ...isVoid ? [] : ['</', tag, '>'],
       ]
+
+      if (keyedElement) {
+        return transformElement(result, `${generator(keyExpr).code}`)
+      }
+
+      return result
     }
     throw new Error(`Unknown element type: ${elem.type}`)
   }
