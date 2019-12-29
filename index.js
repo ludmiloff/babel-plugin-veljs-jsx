@@ -231,7 +231,7 @@ module.exports = api => {
     if (children && children.length > 0) {
       fragmentId += 1
       classAttrs.push(
-        [t.objectProperty(t.identifier('slot'), transformElement([...flatten(children)], fragmentId, true))],
+        [t.objectProperty(t.identifier('children'), transformElement([...flatten(children)], fragmentId, true))],
       )
       fragmentId += 1 // just again after rendering children
     }
