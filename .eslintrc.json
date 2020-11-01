@@ -24,7 +24,7 @@
     "linebreak-style": "error",
     "max-depth": ["warn", 5],
     "max-len": ["error", 120, 4],
-    "max-statements": ["warn", 25],
+    "max-statements": ["warn", 35],
     "no-caller": "error",
     "no-console": "off",
     "no-constant-condition": "off",

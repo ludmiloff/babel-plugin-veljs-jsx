@@ -5,6 +5,43 @@ let fragmentId = 0
 let rootEl = 0
 
 /**
+ * Custom VelJS error class
+ * @param {*} errorOrMessage 
+ * @param {*} codeFrame 
+ * @return {VelJSXError} error class
+ */
+function VelJSXError(errorOrMessage, codeFrame = errorOrMessage.codeFrame) {
+  Error.call(this)
+  this.name = 'VelJSXError'
+
+  if (typeof errorOrMessage !== 'string') {
+    this.message = errorOrMessage.message
+    this.error = errorOrMessage
+
+  } else {
+    this.message = errorOrMessage
+  }
+  
+  if (codeFrame) this.message += `\n\n${codeFrame}\n`
+}
+
+VelJSXError.prototype = Object.create(Error.prototype);
+VelJSXError.prototype.constructor = VelJSXError
+
+/**
+ * Check if JSX expression is of allowed types for AS tag replacement
+ * @param {*} expr 
+ * @return {Boolean} true - if type is allowed
+ */
+function isAsExpression(expr) {
+  if (typeof expr !== 'object' || !expr.needsAsHandling) {
+    return false
+  }
+  const {type} = expr
+  return type === 'MemberExpression' || type === 'ConditionalExpression' || type === 'Identifier'
+}
+
+/**
  * Check if body contains JSX
  * source taken from https://github.com/vuejs/jsx/blob/dev/packages/babel-sugar-inject-h/src/index.js
  * @param {*} t
@@ -114,13 +151,16 @@ module.exports = api => {
     const quasis = [], exprs = []
 
     let i = 0
+    let asExpr = null
+
+    const pLen = parts.length    
 
     // do one iteration more to make sure we produce an empty string quasi at the end
-    while (i < parts.length + 1) {
+    while (i < pLen + 1) {
 
       let quasi = ''
       // join adjacent strings into one
-      while (typeof parts[i] == 'string') {
+      while (typeof parts[i] === 'string') {
         
         // we need to escape backticks and backslashes manually
         // also strip some whitespaces
@@ -133,6 +173,15 @@ module.exports = api => {
         if (part.length !== '') {
           quasi += part
         }
+
+        if (i < pLen && isAsExpression(parts[i + 1])) {
+          if (asExpr !== null) {
+            throw new VelJSXError('Dynamic tag replacement is allowed only once.');
+          }
+          asExpr = parts[i + 1]
+          i += 1
+        }
+
         i += 1
       }
 
@@ -142,12 +191,21 @@ module.exports = api => {
       if (parts[i] != null) {
         exprs.push(parts[i])
       }
-
+    
       i += 1 // repeat
 
     }
 
     if (tagged) {
+      if (asExpr !== null) {
+        const tagExpr = tagType == 1 
+          ? t.identifier(`self.dtt(${fragment}, ${generator(asExpr).code})`)
+          : t.identifier('self.dtt("root")')
+
+        return t.taggedTemplateExpression(
+          tagExpr, 
+          t.templateLiteral(quasis, exprs))
+      }
       const tagExpr = tagType == 1 
         ? t.identifier('self.part(' + fragment + ')')
         : t.identifier('self.part("root")')
@@ -183,20 +241,37 @@ module.exports = api => {
       const attrs = elem.openingElement.attributes.map(renderProp)
       let keyExpr
       let keyedElement = false
+      let tagExpr = tag
+      let hasAsAttr = false
+
       const filteredAttrs = attrs.filter(attr => {
         if (attr[1] === 'key') {
           keyedElement = true
           keyExpr = attr[3]
           return false
         }
+
+        if (attr[1] === 'as') { 
+          tagExpr = attr[3]
+          tagExpr.needsAsHandling = true
+          hasAsAttr = true
+          return false
+        }        
+
         return true
       })
 
-      const result = [
-        '<', tag, ...flatten(filteredAttrs), '>',
-        ...isVoid ? [] : flatten(children),
-        ...isVoid ? [] : ['</', tag, '>'],
-      ]
+      const result = hasAsAttr 
+        ? [
+          '<{tag}', tagExpr, ...flatten(filteredAttrs), '>',
+          ...isVoid ? [] : flatten(children),
+          ...isVoid ? [] : ['</{tag}>'],
+        ]
+        : [
+          '<', tagExpr, ...flatten(filteredAttrs), '>',
+          ...isVoid ? [] : flatten(children),
+          ...isVoid ? [] : ['</', tagExpr, '>'],
+        ]
 
       if (keyedElement) {
         return transformElement(result, `${generator(keyExpr).code}`)

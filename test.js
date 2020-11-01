@@ -37,10 +37,10 @@ test(
   'self.part(4)`<div>foo</div>`;'
 )
 
-console.log('### Custom (Virtual) Elements')
+console.log('### Virtual Elements')
 
 test(
-  "Transforms custom (virtual) element class (fragmentId must be incremented twice)",
+  "Transforms virtual element class (fragmentId must be incremented twice)",
   '<div><MyComponent prop="test"/></div>;',
   'self.part(7)`<div>${MyComponent.for(self, "_f7_", {\n'
     + '  prop: "test"\n'
