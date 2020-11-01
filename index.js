@@ -18,14 +18,15 @@ function VelJSXError(errorOrMessage, codeFrame = errorOrMessage.codeFrame) {
     this.message = errorOrMessage.message
     this.error = errorOrMessage
 
-  } else {
+  } 
+  else {
     this.message = errorOrMessage
   }
   
   if (codeFrame) this.message += `\n\n${codeFrame}\n`
 }
 
-VelJSXError.prototype = Object.create(Error.prototype);
+VelJSXError.prototype = Object.create(Error.prototype)
 VelJSXError.prototype.constructor = VelJSXError
 
 /**
@@ -176,7 +177,7 @@ module.exports = api => {
 
         if (i < pLen && isAsExpression(parts[i + 1])) {
           if (asExpr !== null) {
-            throw new VelJSXError('Dynamic tag replacement is allowed only once.');
+            throw new VelJSXError('Dynamic tag replacement is allowed only once.')
           }
           asExpr = parts[i + 1]
           i += 1
