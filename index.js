@@ -290,7 +290,7 @@ module.exports = api => {
    */  
   function renderClassElement(elem, className, children) {
     const classAttrs = elem.openingElement.attributes.map(renderClassProp)
-    fragmentId += 1
+    //fragmentId += 1
 
     let hasKeyAttr = false
     let keyValue
@@ -469,11 +469,11 @@ module.exports = api => {
               return [t.objectProperty(t.identifier(attributeName), `${generator(templateValue).code}`)]
             } 
             else {
-              fragmentId += 1
+              //fragmentId += 1
               return [
                 t.objectProperty(
                   t.identifier(attributeName), 
-                  prop.value.expression, // `this.part(${fragmentId})${generator(templateValue).code}`
+                  prop.value.expression,
                 ),
               ]
             }
