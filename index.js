@@ -3,12 +3,11 @@ const {default: generator} = require('@babel/generator')
 
 let fragmentId = 0
 let rootEl = 0
-
 /**
- * Custom VelJS error class
+ * Custom VelJSX error class
  * @param {*} errorOrMessage 
  * @param {*} codeFrame 
- * @return {VelJSXError} error class
+ * @return {VelJSXError}
  */
 function VelJSXError(errorOrMessage, codeFrame = errorOrMessage.codeFrame) {
   Error.call(this)
@@ -30,9 +29,9 @@ VelJSXError.prototype = Object.create(Error.prototype)
 VelJSXError.prototype.constructor = VelJSXError
 
 /**
- * Check if JSX expression is of allowed types for AS tag replacement
+ * Check if expression is AS expression
  * @param {*} expr 
- * @return {Boolean} true - if type is allowed
+ * @return {boolean}
  */
 function isAsExpression(expr) {
   if (typeof expr !== 'object' || !expr.needsAsHandling) {
@@ -123,7 +122,7 @@ module.exports = api => {
           const elem = renderElement(path.node)
           if (t.isTaggedTemplateExpression(elem) && rootEl) {
             path.replaceWith(elem)
-          }
+          } 
           else {
             path.replaceWith(transformElement(renderElement(path.node), fragmentId))
           }
@@ -154,8 +153,9 @@ module.exports = api => {
     let i = 0
     let asExpr = null
 
-    const pLen = parts.length    
-
+    const pLen = parts.length
+    i = 0
+    
     // do one iteration more to make sure we produce an empty string quasi at the end
     while (i < pLen + 1) {
 
@@ -173,7 +173,7 @@ module.exports = api => {
 
         if (part.length !== '') {
           quasi += part
-        }
+        }        
 
         if (i < pLen && isAsExpression(parts[i + 1])) {
           if (asExpr !== null) {
@@ -184,6 +184,7 @@ module.exports = api => {
         }
 
         i += 1
+  
       }
 
       quasis.push(t.templateElement({raw: quasi, cooked: quasi}))
@@ -192,9 +193,8 @@ module.exports = api => {
       if (parts[i] != null) {
         exprs.push(parts[i])
       }
-    
-      i += 1 // repeat
 
+      i += 1 // repeat
     }
 
     if (tagged) {
@@ -205,7 +205,8 @@ module.exports = api => {
 
         return t.taggedTemplateExpression(
           tagExpr, 
-          t.templateLiteral(quasis, exprs))
+          t.templateLiteral(quasis, exprs)
+        )        
       }
       const tagExpr = tagType == 1 
         ? t.identifier('self.part(' + fragment + ')')
@@ -244,21 +245,18 @@ module.exports = api => {
       let keyedElement = false
       let tagExpr = tag
       let hasAsAttr = false
-
       const filteredAttrs = attrs.filter(attr => {
         if (attr[1] === 'key') {
           keyedElement = true
           keyExpr = attr[3]
           return false
         }
-
-        if (attr[1] === 'as') { 
+        if (attr[1] === 'as') {     
           tagExpr = attr[3]
-          tagExpr.needsAsHandling = true
+          tagExpr.needsAsHandling = true   
           hasAsAttr = true
           return false
-        }        
-
+        }
         return true
       })
 
@@ -307,7 +305,7 @@ module.exports = api => {
     if (children && children.length > 0) {
       fragmentId += 1
       classAttrs.push(
-        [t.objectProperty(t.identifier('children'), transformElement([...flatten(children)], fragmentId, true))],
+        [t.objectProperty(t.identifier('slot'), transformElement([...flatten(children)], fragmentId, true))],
       )
       fragmentId += 1 // just again after rendering children
     }
@@ -465,10 +463,9 @@ module.exports = api => {
         // modify the name and produce a template expression in all cases
         if (attributeName) {
           if (prop.value.expression.type == 'JSXElement') {
-            // value is jsx element, produce another partial result and pass it
-            // TODO: check prop value expression
-            const templateValue = transformElement(renderElement(prop.value.expression), fragmentId, false)
+            // value is jsx element, produce another partial result and pass it        
             if (isVirtualElement(prop.value.expression)) {
+              const templateValue = transformElement(renderElement(prop.value.expression), fragmentId, false)
               return [t.objectProperty(t.identifier(attributeName), `${generator(templateValue).code}`)]
             } 
             else {
