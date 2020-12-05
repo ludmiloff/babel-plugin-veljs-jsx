@@ -290,7 +290,7 @@ module.exports = api => {
    */  
   function renderClassElement(elem, className, children) {
     const classAttrs = elem.openingElement.attributes.map(renderClassProp)
-    //fragmentId += 1
+    fragmentId += 1
 
     let hasKeyAttr = false
     let keyValue
